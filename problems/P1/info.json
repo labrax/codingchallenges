@@ -1,0 +1,40 @@
+{
+	"name": "Test problem",
+	"short_description": "This problem will practice submission",
+	"content": "This is a test example for this submission tool.\nWhen you submit your solution it will executed against some test cases to evaluate if your solution is correct.\nSome test cases are available to download in the end of the page. Some cases might not be available.\n\nTo submit your solution, click on the submit link and send your file.\nIn this scenario the solution is given in the end of the page.\n\nIn order to test your solution run it using the test cases.\nTo run it in your machine:\nDownload all the files to the same directory.\nExecute the R script, enter one input file, check if it matches the output in the solution.\n\nThe judge script will run using:\n$ cat <input_file> | Rscript sample_submission.R > <output_file>\n$ diff <output_file> <response_file>",
+	"files": [
+		{
+			"name": "sample submission",
+			"file": "sample_submission.R"
+		},
+		{
+			"name": "database",
+			"file": "sample_df.csv"
+		}
+	],
+	"test_cases": {
+		"open": [
+			{
+				"input": "arq1.in", 
+				"output": "arq1.res"
+			}, {
+				"input": "arq2.in",
+				"output": "arq2.res"
+			}
+		],
+		"closed": [
+			{
+				"input": "arq3.in",
+				"output": "arq3.res"
+			}
+		]
+	},
+	"submission": [
+		"submission.R"
+	],
+	"judge": {
+		"exec_line": "cat {} | Rscript {} > {}",
+		"judge_line": "diff --strip-trailing-cr {} {}"
+	},
+	"timelimit": 2
+}

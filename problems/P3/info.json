@@ -1,0 +1,14 @@
+{
+	"name": "Empty problem",
+	"short_description": "This problem will practice submission",
+	"content": "",
+	"files": [
+	],
+	"test_cases": {
+		"open": [
+		],
+		"closed": [
+		]
+	},
+	"timelimit": 2
+}

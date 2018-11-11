@@ -1,0 +1,24 @@
+{
+	"name": "Second problem",
+	"short_description": "This problem will practice submission",
+	"content": "",
+	"files": [
+		{
+			"name": "sample submission",
+			"file": "sample_submission.R"
+		}
+	],
+	"test_cases": {
+		"open": [
+			{
+				"input": "arq1.in", 
+				"output": "arq1.res"
+			}, {
+				"input": "arq2.in",
+				"output": "arq2.res"
+			}
+		],
+		"closed": []
+	},
+	"timelimit": 2
+}

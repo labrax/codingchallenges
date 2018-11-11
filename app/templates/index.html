@@ -2,7 +2,9 @@
 
 {% block content %}
     <h1>Hi, {{ current_user.username }}!</h1>
-    {% for post in posts %}
-    <div><p>{{ post.author.username }} says: <b>{{ post.body }}</b></p></div>
+    {% for section in sections %}
+    {% if section.visible %}
+    <div><p><a href="{{ url_for('section', section_id = section.code) }}">{{ section.code }} <b>{{ section.name }}</b></a>: {{ section.description }}</p></div>
+    {% endif %}
     {% endfor %}
 {% endblock %}

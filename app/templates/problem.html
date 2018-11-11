@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Hi, {{ current_user.username }}!</h1>
+    <div>
+	    <p size="+1">
+	    	<b>{{ problem.code }}: {{ problem.name }}</b>
+	    </p>
+	    <p>
+	    </p>
+	    <p>
+	    </p>
+	    <blockquote>
+	    {% for para in problem.content %}
+	    <p>{{ para }}</p>
+	    {% endfor %}
+	    </blockquote>
+	    <p></p>
+	    <p size="+1">Extra files:</p>
+	    <blockquote>
+	    {% for file in problem.files %}
+	    <p>{{ file.name }}: <a href="{{ url_for('get_file', problem_id = problem.code, file = file.file) }}">{{ file.file }}</a></p>
+	    {% endfor %}
+	    </blockquote>
+	    <p size="+1">Open tests:</p>
+	    <blockquote>
+	    {% for testcase in problem.open_testcases %}
+	    <p><a href="{{ url_for('get_file', problem_id = problem.code, file = testcase.input) }}">{{ testcase.input }}</a> <a href="{{ url_for('get_file', problem_id = problem.code, file = testcase.output) }}">{{ testcase.output }}</a></p>
+	    {% endfor %}
+	    </blockquote>
+	    <p size="+1">Closed tests:</p>
+	    <blockquote>
+		    {% for testcase in problem.closed_testcases %}
+		    <p> {{ testcase.input }} {{ testcase.output }} </p>
+		    {% endfor %}
+	    </blockquote>
+	    {% for file in problem.submission %}
+
+	    {% endfor %}
+    </div>
+{% endblock %}

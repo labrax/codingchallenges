@@ -1,26 +1,20 @@
 from flask import render_template, flash, redirect, url_for, request
 from flask_login import login_user, logout_user, current_user, login_required
 from werkzeug.urls import url_parse
-from app import app, db
+from app import app, db, queue
 from app.forms import LoginForm, RegistrationForm
 from app.models import UserInformation
+from app import sections, problems
+
+from rq.job import Job
+from worker.worker import conn
 
 
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/index')
 @login_required
 def index():
-    posts = [
-        {
-            'author': {'username': 'John'},
-            'body': 'Beautiful day in Portland!'
-        },
-        {
-            'author': {'username': 'Susan'},
-            'body': 'The Avengers movie was so cool!'
-        }
-    ]
-    return render_template('index.html', title='Home', posts=posts)
+    return render_template('index.html', title='Home', sections=sections.section.values())
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -40,8 +34,10 @@ def login():
         return redirect(next_page)
     return render_template('login.html', title='Sign In', form=form)
 
+
 @app.route('/register/', methods=['GET', 'POST'])
 def register():
+    return render_template("register_disabled.html")
     """Register Form"""
     if current_user.is_authenticated:
         return redirect(url_for('index'))
@@ -63,22 +59,63 @@ def logout():
     return redirect(url_for('index'))
 
 
-@app.route("/sections")
-@login_required
-def sections():
-    """List problems"""
-    return "We good"
-
-
-@app.route('/section/<int:section_id>', methods = ['GET' , 'POST'])
+@app.route('/section/<section_id>')
 @login_required
 def section(section_id):
     """Display a specific section"""
-    return "This section: {}".format(section_id)
+    if section_id in sections.section:
+        sect = sections.section[section_id]
+        if sect.visible:
+            return render_template('section.html', title='Section', problems=sect.problems)
+    return redirect(url_for('index'))
 
 
-@app.route('/problem/<int:problem_id>', methods = ['GET' , 'POST'])
+def process_submission(id):
+    #execute for submission id
+    userid = 0
+    problemid = 0
+    amountpass = 0
+    amountfail = 0
+    success = False
+    reportjson = ''
+
+    #save the results
+    try:
+        results = UserProblemSubmission(userid, problemid, amountpass, amountfail, success, reportjson)
+        db.session.add(result)
+        db.session.commit()
+        return results.id
+    except Exception as e:
+        print(e)
+
+
+@app.route('/problem/<problem_id>', methods = ['GET' , 'POST'])
 @login_required
 def problem(problem_id):
     """Display a specific section"""
-    return "This problem: {}".format(problem_id)
+    if request.method == "POST":
+        job = queue.enqueue_call(func = process_submission, args=("",), result_ttl=5000)
+        print(job.get_id())
+    if problem_id in problems:
+        prob = problems[problem_id]
+        return render_template('problem.html', title='Problem', problem=prob)
+    return redirect(url_for('index'))
+
+
+@app.route('/get_file/<problem_id>/<file>')
+@login_required
+def get_file(problem_id, file):
+    return "{}: {}".format(problem_id, file)
+
+
+@app.route('/results/<job_key>', methods=['GET'])
+@login_required
+def get_results(job_key):
+    job = Job.fetch(job_key, connection=conn)
+    if job.is_finished:
+        return str(job.result), 200
+    else:
+        return "Nay!", 202
+
+
+

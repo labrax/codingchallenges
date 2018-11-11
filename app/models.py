@@ -42,11 +42,19 @@ class UserProblemSubmission(db.Model):
     timesubmission = db.Column('submitted_on', db.DateTime)
     userid = db.Column(db.Integer, db.ForeignKey('UserInformation.username'))
     problemid = db.Column('problem_id', db.Integer)
-    processed = db.Column('is_processed', db.Boolean)
     amountpass = db.Column('amount_case_pass', db.Integer)
     amountfail = db.Column('amount_case_fail', db.Integer)
     success = db.Column('is_sucess', db.Boolean)
     reportjson = db.Column('reportjson', db.String(4096))
+
+    def __init__(self, userid, problemid, amountpass, amountfail, success, reportjson):
+        self.userid = userid
+        self.problemid = problemid
+        self.amountpass = amountpass
+        self.amountfail = amountfail
+        self.success =  success
+        self.reportjson = reportjson
+
 
 
 class ProblemGroup(db.Model):
@@ -69,3 +77,4 @@ class ProblemInfo(db.Model):
     amount_pass = db.Column('amount_pass', db.Integer)
     amount_fail = db.Column('amount_fail', db.Integer)
     rulesjson = db.Column('rulesjson', db.String(32768)) #(each input file, timelimit, other related files for download)
+

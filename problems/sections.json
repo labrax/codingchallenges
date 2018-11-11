@@ -1,0 +1,18 @@
+{
+	"sections": [
+		{
+			"code": "001",
+			"name": "Chapter 1",
+			"description": "test section",
+			"problems": ["P1", "P2"],
+			"visible": 1
+		},
+		{
+			"code": "002",
+			"name": "Chapter 2",
+			"description": "another cool description",
+			"problems": ["P3"],
+			"visible": 0
+		}
+	]
+}
