@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Hi, {{ current_user.username }}!</h1>
+    <table border="2">
+	    <tr>
+		    <th>User</th>
+		    <th>Successes</th>
+		    <th>Not successes</th>
+	    </tr>
+    {% for player in players %}
+	    <tr>
+		    <th>{{ player[0] }}</th>
+		    <th>{{ player[1] }}</th>
+		    <th>{{ player[2] }}</th>
+	    </tr>
+    {% endfor %}
+    </table>
+{% endblock %}

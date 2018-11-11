@@ -197,3 +197,39 @@ def get_results(job_key):
         return render_template('result_wait.html', title='Results incoming...')
 
 
+@app.route('/ranks', methods=['GET'])
+@login_required
+def ranks():
+    result = UserProblemSubmission.query.filter_by(success=True).all()
+    user_problem = dict()
+    for i in result:
+        if i.userid not in user_problem:
+            user_problem[i.userid] = dict()
+        user_problem[i.userid][i.problemid] = True
+    ret = [(len(j[1].values()), j[0]) for j in user_problem.items()]
+    ret.sort()
+    return render_template('ranks.html', title='Ranks', players=ret)
+
+
+@app.route('/problem_scoring/<problem_id>', methods=['GET'])
+@login_required
+def problem_scoring(problem_id):
+    result = UserProblemSubmission.query.filter_by(problemid=problem_id).all()
+    user_problem_pass = dict()
+    user_problem_fail = dict()
+    for i in result:
+        if i.userid not in user_problem_pass:
+            user_problem_pass[i.userid] = 0
+        if i.userid not in user_problem_fail:
+            user_problem_fail[i.userid] = 0
+        if not i.success:
+            user_problem_fail[i.userid] += 1
+        if i.success:
+            user_problem_pass[i.userid] += 1
+    ret = list()
+    for i in user_problem_pass.keys():
+        ret.append((i, user_problem_pass[i], user_problem_fail[i]))
+    ret.sort()
+    return render_template('problem_scoring.html', title='Problem {} scores'.format(problem_id), players=ret)
+
+

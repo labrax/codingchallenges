@@ -1,0 +1,16 @@
+
+
+To run this you'll need:
+
+redis-server
+
+Some python dependencies:
+- flask
+- ...
+
+Create needed folders:
+- mkdir upload tmp
+
+To run:
+- python worker.py
+- python server.py
