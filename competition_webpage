@@ -1,0 +1,32 @@
+UserPassword
+user | passwd (sha5sum) | salt
+
+UserRegister
+activationkey | user
+
+UserInformation
+user | timecreation | timeactivated | timelastlogin | email | activated | admin (create/edit problems) | rank (updated from problems solved)
+
+UserProblemSubmission
+submission | time | user | problemid | completedprocessing | amountpass | amountfail | sucess | reportjson (cases right and wrong, time taken, worker, code)
+
+ProblemGroup
+time | problemgroup | name | description | visible
+
+ProblemInfo
+time | problemgroup | problemid | shortdescription | link | visible | timelimit | success amount | fail amount | rulesjson (each input file, other related files for download)
+
+ProblemTest
+problemid | testcase | open | input | output
+
+
+processing queue
+
+
+https
+climits: tcp/ip - installation blocking - reset profile
+json information
+worker threads
+diff ignore eof eol
+standardized input and output?
+
