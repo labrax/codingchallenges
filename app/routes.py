@@ -14,6 +14,7 @@ from worker import conn
 
 import os
 from subprocess import Popen, TimeoutExpired
+import resource
 
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/index')
@@ -86,7 +87,9 @@ def process_submission(problem_id, username, filename, ):
         script_file = os.getcwd() + '/' + app.config['UPLOAD_FOLDER'] + '/' + filename
         tempfile = os.getcwd() + '/' + app.config['TEMPORARY_FOLDER'] + '/' + filename + '.out'
         os.chdir(app.config['PROBLEMS_DIR'] + '/' + problem_id)
-        proc = Popen(prob.judge_line.format(input, script_file, tempfile, tempfile, res), shell=True)
+        def setlimits():
+            resource.setrlimit(resource.RLIMIT_AS, (256 * 1024 * 1024, 256 * 1024 * 1024))
+        proc = Popen(prob.judge_line.format(input, script_file, tempfile, tempfile, res), shell=True, preexec_fn=setlimits)
         try:
             outs, errs = proc.communicate(timeout=timelimit)
         except TimeoutExpired:
