@@ -7,7 +7,7 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from config import Config
 from rq import Queue
-from worker.worker import conn
+from worker import conn
 from app.problems import Sections
 
 app = Flask(__name__)

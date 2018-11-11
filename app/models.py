@@ -54,9 +54,10 @@ class UserProblemSubmission(db.Model):
         self.amountfail = amountfail
         self.success =  success
         self.reportjson = reportjson
+        self.timesubmission = datetime.utcnow()
 
 
-
+"""
 class ProblemGroup(db.Model):
     __tablename__ = "ProblemGroup"
     id = db.Column('problem_group_id', db.Integer, primary_key=True)
@@ -77,4 +78,4 @@ class ProblemInfo(db.Model):
     amount_pass = db.Column('amount_pass', db.Integer)
     amount_fail = db.Column('amount_fail', db.Integer)
     rulesjson = db.Column('rulesjson', db.String(32768)) #(each input file, timelimit, other related files for download)
-
+"""

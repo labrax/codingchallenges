@@ -41,4 +41,5 @@ class Problem:
         self.closed_testcases = self.settings['test_cases']['closed']
         self.timelimit = self.settings['timelimit']
         self.submission = self.settings['submission']
+        self.judge_line = self.settings['judge']['exec_line']
 
