@@ -5,7 +5,7 @@ from datetime import datetime
 
 class UserInformation(UserMixin, db.Model):
     __tablename__ = "UserInformation"
-    id = db.Column('user_id', db.Integer, primary_key=True, unique=True, index=True)
+    id = db.Column('id', db.Integer, primary_key=True, unique=True, index=True)
     username = db.Column('username', db.String(20), unique=True, index=True)
     password = db.Column('password', db.String(200))
     registered_on = db.Column('registered_on', db.DateTime)
@@ -37,7 +37,7 @@ def load_user(id):
 
 class UserProblemSubmission(db.Model):
     __tablename__ = "UserProblemSubmission"
-    id = db.Column("submission_id", db.Integer, primary_key=True, unique=True, index=True)
+    id = db.Column("id", db.Integer, primary_key=True, unique=True, index=True)
     timesubmission = db.Column('submitted_on', db.DateTime)
     userid = db.Column(db.Integer, db.ForeignKey('UserInformation.username'))
     problemid = db.Column('problem_id', db.Integer)
@@ -57,7 +57,7 @@ class UserProblemSubmission(db.Model):
 
 class Section(db.Model):
     __tablename__ = "Section"
-    id = db.Column('problem_group_id', db.Integer, primary_key=True, index=True)
+    id = db.Column('id', db.Integer, primary_key=True, index=True)
     timecreated = db.Column('created_on', db.DateTime)
     code = db.Column('code', db.String(20), unique=True, index=True)
     name = db.Column('name', db.String(20))
@@ -72,7 +72,7 @@ class Section(db.Model):
 
 class SectionProblemRelation(db.Model):
     __tablename__ = "SectionProblemRelation"
-    id = db.Column('section_problem_id', db.Integer, primary_key=True, index=True)
+    id = db.Column('id', db.Integer, primary_key=True, index=True)
     sectioncode = db.Column('section_code', db.String(20), db.ForeignKey('Section.code'))
     problemcode = db.Column('problem_code', db.String(20), db.ForeignKey('ProblemInformation.code'))
     def __init__(self, sectioncode, problemcode):
@@ -82,7 +82,7 @@ class SectionProblemRelation(db.Model):
 
 class ProblemInformation(db.Model):
     __tablename__ = "ProblemInformation"
-    id = db.Column('problem_id', db.Integer, primary_key=True, index=True)
+    id = db.Column('id', db.Integer, primary_key=True, index=True)
     code = db.Column('code', db.String(20), unique=True, index=True)
     name = db.Column('name', db.String(20))
     created_on = db.Column('created_on', db.DateTime)
@@ -90,22 +90,28 @@ class ProblemInformation(db.Model):
     description = db.Column('description', db.String(32768))
     visible = db.Column('is_visible', db.Boolean)
     timelimit = db.Column('timelimit', db.Integer)
-    def __init__(self, code, shortdescription, description, timelimit):
+    judge_cmd = db.Column('judge_cmd', db.String(128))
+    def __init__(self, code, name, shortdescription, description, timelimit, judge_cmd):
         self.code = code
+        self.name = name
         self.shortdescription = shortdescription
         self.description = description
         self.visible = False
         self.timelimit = timelimit
+        self.judge_cmd = judge_cmd
         self.created_on = datetime.utcnow()
 
 
-class ProblemDependentFiles(db.Model):
-    __tablename__ = "ProblemDependentFiles"
-    id = db.Column('dependent_files_id', db.Integer, primary_key=True, index=True)
+class ProblemFile(db.Model):
+    __tablename__ = "ProblemFile"
+    id = db.Column('id', db.Integer, primary_key=True, index=True)
     problem_code = db.Column('code', db.String(20), db.ForeignKey('ProblemInformation.code'), index=True)
     file_name = db.Column('name', db.String(32))
-    file_content = db.Column('content', db.String(32768))
     visible = db.Column('is_visible', db.Boolean)
+    def __init__(self, problem_code, file_name, visible):
+        self.problem_code = problem_code
+        self.file_name = file_name
+        self.visible = visible
 
 
 class ProblemTestCaseInformation(db.Model):
@@ -113,7 +119,14 @@ class ProblemTestCaseInformation(db.Model):
     id = db.Column('id', db.Integer, primary_key=True, index=True)
     problem_code = db.Column('code', db.String(20), db.ForeignKey('ProblemInformation.code'), index=True)
     test_case = db.Column('testcase', db.Integer)
-    input_content = db.Column('input', db.String(4096))
-    res_content = db.Column('output', db.String(4096))
-    visible = db.Column('is_visible', db.Boolean)
+    input_file = db.Column('input_file', db.Integer, db.ForeignKey('ProblemFile.id'))
+    res_file = db.Column('res_file', db.Integer, db.ForeignKey('ProblemFile.id'))
+    is_open_case = db.Column('is_open_case', db.Boolean)
+    def __init__(self, problem_code, test_case, input_file, res_file, is_open):
+        self.problem_code = problem_code
+        self.test_case = test_case
+        self.input_file = input_file
+        self.res_file = res_file
+        self.is_open_case = is_open
+
 

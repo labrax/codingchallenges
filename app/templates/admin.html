@@ -36,4 +36,18 @@
 		</tr>
     {% endfor %}
     </table>
+    <table border="2">
+	    <tr>
+		    <th>Username</th>
+		    <th>E-mail</th>
+		    <th>Admin</th>
+	    </tr>
+    {% for user in users %}
+    		<tr>
+			<td><a href="{{ url_for('user', user_id=user.username) }}">{{ user.username }}</a></td>
+			<td>{{ user.email }}</td>
+			<td>{{ user.admin }}</td>
+		</tr>
+    {% endfor %}
+    </table>
 {% endblock %}

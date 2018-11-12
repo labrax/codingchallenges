@@ -4,10 +4,9 @@ from flask_login import login_user, logout_user, current_user, login_required
 from werkzeug.urls import url_parse
 from werkzeug.utils import secure_filename
 from app import app, db, queue
-from app.forms import LoginForm, RegistrationForm
-from app.models import UserInformation, UserProblemSubmission, Section, ProblemInformation, SectionProblemRelation
 
-from app import sections, problems
+from app.forms import LoginForm, RegistrationForm, ChangePasswordForm, AdminSectionForm, AdminProblemForm, SectionProblemConnectForm, UploadFileForm, DeleteFileForm, SetTestCaseForm, DeleteTestCaseForm
+from app.models import UserInformation, UserProblemSubmission, Section, ProblemInformation, SectionProblemRelation, ProblemFile, ProblemTestCaseInformation
 
 from rq.job import Job
 from worker import conn
@@ -16,39 +15,8 @@ import os
 from subprocess import Popen, TimeoutExpired, PIPE
 import resource
 
-from flask_wtf import FlaskForm
-from wtforms import StringField, BooleanField, SubmitField, IntegerField, TextAreaField
-from wtforms.validators import DataRequired, Optional, length
 
-
-class AdminSectionForm(FlaskForm):
-    code = StringField('Code', validators=[Optional(), length(max=20)])
-    name = StringField('Name', validators=[DataRequired(), length(max=20)])
-    description = StringField('Short description', validators=[DataRequired(), length(max=50)])
-    visible = BooleanField('Should it be visible?')
-    delete = BooleanField('Delete?')
-    submit = SubmitField('Add/Update!')
-
-
-class AdminProblemForm(FlaskForm):
-    code = StringField('Code', validators=[Optional(), length(max=20)])
-    name = StringField('Name', validators=[DataRequired(), length(max=20)])
-    shortdescription = StringField('Short description', validators=[DataRequired(), length(max=50)])
-    description = TextAreaField('Description', validators=[DataRequired(), length(max=32768)])
-    timelimit = IntegerField('Timelimit', validators=[DataRequired()])
-    visible = BooleanField('Should it be visible?')
-    delete = BooleanField('Delete?')
-    submit = SubmitField('Add/Update!')
-
-
-class SectionProblemConnectForm(FlaskForm):
-    sectioncode = StringField('Section Code', validators=[DataRequired(), length(max=20)])
-    problemcode = StringField('Problem Code', validators=[DataRequired(), length(max=20)])
-    delete = BooleanField('Delete?')
-    submit = SubmitField('Add!')
-
-
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/')
 @app.route('/index')
 @login_required
 def index():
@@ -97,6 +65,21 @@ def logout():
     logout_user()
     return redirect(url_for('index'))
 
+@app.route("/changepassword", methods=['GET', 'POST'])
+@login_required
+def change_password():
+    """Change password Form"""
+    form = ChangePasswordForm()
+    if form.validate_on_submit():
+        user = UserInformation.query.filter_by(username=form.username.data).first()
+        user.set_password(form.password.data)
+        db.session.commit()
+        flash('Password update successfully')
+        logout_user()
+        return redirect(url_for('login'))
+    form.username.data = current_user.username
+    return render_template('change_password.html', title='Change password', form=form)
+
 
 @app.route('/section/<section_id>')
 @login_required
@@ -111,6 +94,15 @@ def section(section_id):
     return redirect(url_for('index'))
 
 
+@app.route('/user/<user_id>')
+@login_required
+def user(user_id):
+    """Display a specific section"""
+    user = UserInformation.query.filter_by(username=user_id).first()
+    return render_template('user.html', title='User', user=user)
+
+
+
 def process_submission(problem_id, username, filename, ):
     #execute for submission id
     amountpass = 0
@@ -119,9 +111,9 @@ def process_submission(problem_id, username, filename, ):
 
     def exec(case, input, res, timelimit, in_and_out = False):
         original_wd = os.getcwd()
-        script_file = os.getcwd() + '/' + app.config['UPLOAD_FOLDER'] + '/' + filename
-        tempfile = os.getcwd() + '/' + app.config['TEMPORARY_FOLDER'] + '/' + filename + '.out'
-        os.chdir(app.config['PROBLEMS_DIR'] + '/' + problem_id)
+        script_file = os.path.join(os.getcwd(), app.config['UPLOAD_FOLDER'], filename)
+        tempfile = os.path.join(os.getcwd(), app.config['TEMPORARY_FOLDER'], filename, '.out')
+        os.chdir(os.path.join(app.config['PROBLEMS_DIR'], problem_id))
         def setlimits():
             resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
         proc = Popen(prob.judge_line.format(input, script_file, tempfile, tempfile, res), stdout=PIPE, stderr=PIPE, shell=True, preexec_fn=setlimits)
@@ -142,6 +134,7 @@ def process_submission(problem_id, username, filename, ):
             return True
         return False
 
+    #TODO
     prob = problems[problem_id]
     timelimit = prob.timelimit
     for index, i in zip(range(len(prob.open_testcases)), prob.open_testcases):
@@ -206,22 +199,20 @@ def problem(problem_id):
         if file:
             filename = str(datetime.utcnow().timestamp()) + '_' + prob.code + '_' + current_user.username + '.r'
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            job = queue.enqueue_call(func = process_submission, args=(problem_id, current_user.username, filename,), result_ttl=5000)
+            job = queue.enqueue_call(func = process_submission, args=(problem_id, current_user.username, filename,), result_ttl=45*60)
             print(job.get_id())
             return redirect(url_for('get_results', job_key=job.get_id()))
     else:
-        return render_template('problem.html', title='Problem', problem=prob, files=[], open_testcases=[], closed_testcases=[])
+        return render_template('problem.html', title='Problem', problem=prob, files=ProblemFile.query.filter_by(problem_code=problem_id, visible=True).all(), testcases=ProblemTestCaseInformation.query.filter_by(problem_code=problem_id).all())
+
 
 @app.route('/get_file/<problem_id>/<file>')
 @login_required
 def get_file(problem_id, file):
-    if problem_id in problems:
-        prob = problems[problem_id]
-        base_folder = app.config['PROBLEMS_DIR'] + '/' + prob.code + '/'
-        if file in [i['file'] for i in prob.files]:
-            return send_file(base_folder + file, attachment_filename=file)
-        elif file in [i['input'] for i in prob.open_testcases] + [i['output'] for i in prob.open_testcases]:
-            return send_file(base_folder + file, attachment_filename=file)
+    #TODO
+    file = ProblemFile.query.filter_by(id=file, problem_code=problem_id, visible=True).first()
+    if file:
+        return send_file(os.path.join(app.config['PROBLEMS_DIR'], problem_id, file.file_name), attachment_filename=file.file_name)
     return render_template('404.html', title='Invalid file')
 
 
@@ -229,7 +220,6 @@ def get_file(problem_id, file):
 @login_required
 def get_results(job_key):
     job = Job.fetch(job_key, connection=conn)
-
     if job.is_finished:
         result = UserProblemSubmission.query.filter_by(id=job.result).first()
         return render_template('result.html', title='Result', result = result)
@@ -284,9 +274,9 @@ def admin(problem_code=None, section_code=None):
         db.session.commit()
         return render_template('404.html')
     if section_code: #lets work on a section
-        section = Section.query.filter_by(code=section_code).first()
         form = AdminSectionForm()
         if form.validate_on_submit(): #the form is complete
+            section = Section.query.filter_by(code=form.code.data).first()
             if section and form.delete.data: #we have a section and would like to delete
                 db.session.delete(section)
                 db.session.commit()
@@ -298,26 +288,30 @@ def admin(problem_code=None, section_code=None):
                 flash("Updated section")
                 db.session.commit()
             else: #no section - lets create
-                section = Section(section_code, form.name.data, form.description.data)
+                section = Section(form.code.data, form.name.data, form.description.data)
                 db.session.add(section)
                 db.session.commit()
                 flash("Section created")
+            return redirect(url_for('admin', section_code=form.code.data))
         else: #the form is not complete
+            section = Section.query.filter_by(code=section_code).first()
             if section: #we have a section
                 form.code.data = section.code
                 form.name.data = section.name
                 form.description.data = section.description
                 form.visible.data = section.visible
             else: #we do not have a section
-                form.code.data = section_code
+                if section_code == 'new':
+                    form.code.data = ''
+                else:
+                    form.code.data = section_code
                 form.visible.render_kw = {'disabled': 'disabled'}
                 form.delete.render_kw = {'disabled': 'disabled'}
-        form.code.render_kw = {'disabled': 'disabled'}
         return render_template('admin_section.html', title='Manage section', form=form, section=section)
     elif problem_code: #lets work on a problem
-        problem = ProblemInformation.query.filter_by(code=problem_code).first()
         form = AdminProblemForm()
         if form.validate_on_submit():
+            problem = ProblemInformation.query.filter_by(code=form.code.data).first()
             if problem and form.delete.data:
                 db.session.delete(problem)
                 db.session.commit()
@@ -326,33 +320,45 @@ def admin(problem_code=None, section_code=None):
                 problem.name = form.name.data
                 problem.shortdescription = form.shortdescription.data
                 problem.description = form.description.data
+                problem.judge_cmd = form.judge_cmd.data
                 problem.timelimit = form.timelimit.data
                 problem.visible = form.visible.data
                 db.session.commit()
                 flash('Updated problem')
             else:
-                problem = ProblemInformation(problem_code, form.shortdescription.data, form.description.data, form.timelimit.data)
+                problem = ProblemInformation(form.code.data, form.name.data, form.shortdescription.data, form.description.data, form.timelimit.data, form.judge_cmd.data)
                 db.session.add(problem)
                 db.session.commit()
+                try:
+                    os.mkdir(app.config['PROBLEMS_DIR'] + '/' + form.code.data, 0o755)
+                except FileExistsError:
+                    pass
                 flash('Problem created')
+            return redirect(url_for('admin', problem_code=form.code.data))
         else:
+            problem = ProblemInformation.query.filter_by(code=problem_code).first()
             if problem:
                 form.code.data = problem.code
+                print(problem.name)
                 form.name.data = problem.name
                 form.shortdescription.data = problem.shortdescription
                 form.description.data = problem.description
+                form.judge_cmd.data = problem.judge_cmd
                 form.timelimit.data = problem.timelimit
                 form.visible.data = problem.visible
             else:
-                form.code.data = problem_code
+                if problem_code == 'new':
+                    form.code.data = ''
+                else:
+                    form.code.data = problem_code
                 form.visible.render_kw = {'disabled': 'disabled'}
                 form.delete.render_kw = {'disabled': 'disabled'}
-        form.code.render_kw = {'disabled': 'disabled'}
         return render_template('admin_problem.html', title='Manage problem', form=form, problem=problem)
     else: #let's display all sections, even the hidden ones
         all_sections = Section.query.all()
         all_problems = ProblemInformation.query.all()
-        return render_template("admin.html", title='Admin page', sections=all_sections, problems=all_problems)
+        all_users = UserInformation.query.all()
+        return render_template("admin.html", title='Admin page', sections=all_sections, problems=all_problems, users=all_users)
     return ''
 
 
@@ -360,31 +366,86 @@ def admin(problem_code=None, section_code=None):
 def connect_problem_section():
     #if it is not an admin user or the user is not logged does not display this page
     if not current_user.is_authenticated or not current_user.admin:
-        usr = UserInformation.query.filter_by(username='hue').first()
-        usr.admin = True
-        db.session.commit()
         return render_template('404.html')
     form = SectionProblemConnectForm() 
-    problem = ProblemInformation.query.filter_by(code=form.problemcode.data).first()
-    section = Section.query.filter_by(code=form.sectioncode.data).first()
     if form.validate_on_submit():
-        if problem and section:
-            rel = SectionProblemRelation.query.filter_by(sectioncode=form.sectioncode.data, problemcode=form.problemcode.data).first()
-            if form.delete.data and rel:
-                db.session.delete(rel)
-                db.session.commit()
-                flash('Relation removed')
-            elif not form.delete.data and not rel:
-                s = SectionProblemRelation(form.sectioncode.data, form.problemcode.data)
-                db.session.add(s)
-                db.session.commit()
-                flash('Relation created')
-            else:
-                flash('Either the relation existed already and it was not needed to be created or the relation did not exist and I was asked to remove')
+        problem = ProblemInformation.query.filter_by(code=form.problemcode.data).first()
+        section = Section.query.filter_by(code=form.sectioncode.data).first()        
+        rel = SectionProblemRelation.query.filter_by(sectioncode=form.sectioncode.data, problemcode=form.problemcode.data).first()
+        if form.delete.data and rel:
+            db.session.delete(rel)
+            db.session.commit()
+            flash('Relation removed')
+        elif not form.delete.data and not rel:
+            s = SectionProblemRelation(form.sectioncode.data, form.problemcode.data)
+            db.session.add(s)
+            db.session.commit()
+            flash('Relation created')
         else:
-            if not section:
-                flash('Section does not exist!')
-            if not problem:
-                flash('Problem does not exist!')
+            flash('Either the relation existed already and it was not needed to be created or the relation did not exist and I was asked to remove')
+    else:
+        problem = None
+        section = None
     return render_template('admin_connect.html', title='Manage section - problem', form=form, problem=problem, section=section)
+
+
+@app.route('/admin/problem/<problem_id>/files', methods = ['GET' , 'POST'])
+def admin_problem_file(problem_id):
+    #if it is not an admin user or the user is not logged does not display this page
+    if not current_user.is_authenticated or not current_user.admin:
+        return render_template('404.html')
+    if not ProblemInformation.query.filter_by(code=problem_id).first():
+        return redirect(url_for('admin'))
+
+    form = UploadFileForm(prefix='form')
+    form1 = DeleteFileForm(prefix='form1')
+    form2 = SetTestCaseForm(prefix='form2')
+    form3 = DeleteTestCaseForm(prefix='form3')
+
+    if form.submit.data and form.validate_on_submit():
+        filename = os.path.join(app.config['PROBLEMS_DIR'], problem_id, form.file_name.data)
+        form.file_sent.data.save(filename)
+        f = ProblemFile.query.filter_by(problem_code=problem_id, file_name=form.file_name.data).first()
+        if f:
+            f.visible=form.visible.data
+            db.session.commit()
+            flash("File overwritten.")
+        else:
+            file = ProblemFile(problem_id, form.file_name.data, form.visible.data)
+            db.session.add(file)
+            db.session.commit()
+            flash("File uploaded.")
+    elif form1.submit.data and form1.validate_on_submit():
+        file = ProblemFile.query.filter_by(id=form1.file_id.data, problem_code=problem_id).first()
+        if file:
+            path = os.path.join(app.config['PROBLEMS_DIR'], problem_id, file.file_name)
+            db.session.delete(file)
+            db.session.commit()
+            os.unlink(path)
+            flash('File deleted.')
+        else:
+            flash('File not found.')
+    elif form2.submit.data and form2.validate_on_submit():
+        exists = ProblemTestCaseInformation.query.filter_by(problem_code=problem_id, test_case=form2.test_case.data).first()
+        if not exists:
+            n = ProblemTestCaseInformation(problem_id, form2.test_case.data, form2.input_file.data, form2.res_file.data, form2.is_open.data)
+            db.session.add(n)
+            db.session.commit()
+            flash('Test case added.')
+        else:
+            exists.input_file = form2.input_file.data
+            exists.res_file = form2.res_file.data
+            exists.is_open_case = form2.is_open.data
+            db.session.commit()
+            flash('Test case was overwritten.')
+    elif form3.submit.data and form3.validate_on_submit():
+        exists = ProblemTestCaseInformation.query.filter_by(problem_code=problem_id, test_case=form3.test_case.data).first()
+        if exists:
+            db.session.delete(exists)
+            db.session.commit()
+            flash('Test case removed.')
+        else:
+            flash('Test case was not removed because it does not exist.')
+    return render_template('admin_problem_file.html', title='Manage problem - files', form=form, form1=form1, form2=form2, form3=form3, problem=ProblemInformation.query.filter_by(code=problem_id).first(), files=ProblemFile.query.filter_by(problem_code=problem_id).all(), testcases=ProblemTestCaseInformation.query.filter_by(problem_code=problem_id).all())
+
 

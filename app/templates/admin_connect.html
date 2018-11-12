@@ -3,10 +3,10 @@
 {% block content %}
     <h1>Manage section: {{ section_id }}</h1>
     {% if section %}
-    	<p><a href={{ url_for('admin', section_id = section.code) }}>{{ section.code }}</a></p>
+    	<p><a href={{ url_for('admin', section_code = section.code) }}>{{ section.code }}</a></p>
     {% endif %}
     {% if problem %}
-    	<p><a href={{ url_for('admin', problem_id = problem.code) }}>{{ problem.code }}</a></p>
+    	<p><a href={{ url_for('admin', problem_code = problem.code) }}>{{ problem.code }}</a></p>
     {% endif %}
     <form action="" method="post">
         {{ form.hidden_tag() }}

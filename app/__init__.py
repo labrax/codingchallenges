@@ -8,7 +8,7 @@ from flask_login import LoginManager
 from config import Config
 from rq import Queue
 from worker import conn
-from app.problems import Sections
+
 
 app = Flask(__name__, static_url_path="/static", static_folder='/home/vroth/codingchallenges/static/')
 app.config.from_object(Config)
@@ -17,8 +17,6 @@ migrate = Migrate(app, db)
 login = LoginManager(app)
 login.login_view = 'login'
 queue = Queue(connection=conn)
-sections = Sections()
-problems = {j.code: j for j in sum([i.problems for i in sections.section.values()], [])}
 
 
 if not app.debug:
@@ -46,4 +44,5 @@ if not app.debug:
     app.logger.addHandler(file_handler)
     app.logger.setLevel(logging.INFO)
     app.logger.info('Server startup')
+
 from app import routes, models, errors

@@ -1,0 +1,18 @@
+{
+	"sections": [
+		{
+			"code": "TEST",
+			"name": "Test area",
+			"description": "yep, for tests",
+			"problems": ["P1", "P2"],
+			"visible": 1
+		},
+		{
+			"code": "ISL-001",
+			"name": "Chapter 2",
+			"description": "Chapter 2 for the Introduction to Statistical Learning book",
+			"problems": ["ISL-C1-P1"],
+			"visible": 1
+		}
+	]
+}
