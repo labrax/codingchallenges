@@ -13,7 +13,7 @@ from rq.job import Job
 from worker import conn
 
 import os
-from subprocess import Popen, TimeoutExpired
+from subprocess import Popen, TimeoutExpired, PIPE
 import resource
 
 @app.route('/', methods=['GET', 'POST'])
@@ -88,8 +88,8 @@ def process_submission(problem_id, username, filename, ):
         tempfile = os.getcwd() + '/' + app.config['TEMPORARY_FOLDER'] + '/' + filename + '.out'
         os.chdir(app.config['PROBLEMS_DIR'] + '/' + problem_id)
         def setlimits():
-            resource.setrlimit(resource.RLIMIT_AS, (256 * 1024 * 1024, 256 * 1024 * 1024))
-        proc = Popen(prob.judge_line.format(input, script_file, tempfile, tempfile, res), shell=True, preexec_fn=setlimits)
+            resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
+        proc = Popen(prob.judge_line.format(input, script_file, tempfile, tempfile, res), stdout=PIPE, stderr=PIPE, shell=True, preexec_fn=setlimits)
         try:
             outs, errs = proc.communicate(timeout=timelimit)
         except TimeoutExpired:
@@ -97,10 +97,14 @@ def process_submission(problem_id, username, filename, ):
             outs, errs = proc.communicate() 
             if in_and_out:
                 reportjson[case] = 'timelimit'
-        if in_and_out:
-            reportjson[input] = '{};{}'.format(outs, errs)
         os.unlink(tempfile)
         os.chdir(original_wd)
+        outs = outs.decode().replace('\n', '<p></p>')
+        errs = errs.decode().replace('\n', '<p></p>')
+        if in_and_out:
+            reportjson[input] = '{};{}'.format(outs, errs)
+        if outs == '' and errs == '':
+            return True
         return False
 
     prob = problems[problem_id]
@@ -122,9 +126,9 @@ def process_submission(problem_id, username, filename, ):
             amountfail = amountfail + 1
 
     if amountfail == 0:
-        success = False
-    else:
         success = True
+    else:
+        success = False
 
     #save the results
     try:
@@ -173,7 +177,6 @@ def problem(problem_id):
             return render_template('problem.html', title='Problem', problem=prob)
     #if the problem is not valid return to initial page
     return redirect(url_for('index'))
-
 
 @app.route('/get_file/<problem_id>/<file>')
 @login_required

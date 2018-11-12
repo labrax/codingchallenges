@@ -10,7 +10,7 @@ from rq import Queue
 from worker import conn
 from app.problems import Sections
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path="/static", static_folder='/home/vroth/codingchallenges/static/')
 app.config.from_object(Config)
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)

@@ -1,0 +1,34 @@
+{
+	"name": "Exercise 7",
+	"short_description": "",
+	"content": "In this problem, you have to solve the exercise number 7 of the second chapter of ISL book. In the input you'll get the name of a dataset file. Load that file and give the solutions, as in the model submission.",
+	"files": [
+		{
+			"name": "sample submission",
+			"file": "model_submission.R"
+		},
+		{
+			"name": "database 1",
+			"file": "database.csv"
+		}
+	],
+	"test_cases": {
+		"open": [
+			{
+				"input": "arq1.in", 
+				"output": "arq1.res"
+			}
+		],
+		"closed": [
+
+		]
+	},
+	"submission":{
+		"name": "submission.R"
+	}
+	,
+	"judge": {
+		"exec_line": "cat {} | Rscript {} > {}; diff --strip-trailing-cr {} {}"
+	},
+	"timelimit": 2
+}
