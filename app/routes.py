@@ -5,7 +5,7 @@ from werkzeug.urls import url_parse
 from werkzeug.utils import secure_filename
 from app import app, db, queue
 from app.forms import LoginForm, RegistrationForm
-from app.models import UserInformation, UserProblemSubmission
+from app.models import UserInformation, UserProblemSubmission, Section, ProblemInformation, SectionProblemRelation
 
 from app import sections, problems
 
@@ -16,11 +16,44 @@ import os
 from subprocess import Popen, TimeoutExpired, PIPE
 import resource
 
+from flask_wtf import FlaskForm
+from wtforms import StringField, BooleanField, SubmitField, IntegerField, TextAreaField
+from wtforms.validators import DataRequired, Optional, length
+
+
+class AdminSectionForm(FlaskForm):
+    code = StringField('Code', validators=[Optional(), length(max=20)])
+    name = StringField('Name', validators=[DataRequired(), length(max=20)])
+    description = StringField('Short description', validators=[DataRequired(), length(max=50)])
+    visible = BooleanField('Should it be visible?')
+    delete = BooleanField('Delete?')
+    submit = SubmitField('Add/Update!')
+
+
+class AdminProblemForm(FlaskForm):
+    code = StringField('Code', validators=[Optional(), length(max=20)])
+    name = StringField('Name', validators=[DataRequired(), length(max=20)])
+    shortdescription = StringField('Short description', validators=[DataRequired(), length(max=50)])
+    description = TextAreaField('Description', validators=[DataRequired(), length(max=32768)])
+    timelimit = IntegerField('Timelimit', validators=[DataRequired()])
+    visible = BooleanField('Should it be visible?')
+    delete = BooleanField('Delete?')
+    submit = SubmitField('Add/Update!')
+
+
+class SectionProblemConnectForm(FlaskForm):
+    sectioncode = StringField('Section Code', validators=[DataRequired(), length(max=20)])
+    problemcode = StringField('Problem Code', validators=[DataRequired(), length(max=20)])
+    delete = BooleanField('Delete?')
+    submit = SubmitField('Add!')
+
+
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/index')
 @login_required
 def index():
-    return render_template('index.html', title='Home', sections=sections.section.values())
+    sections = Section.query.filter_by(visible=True).order_by(Section.code).all()
+    return render_template('index.html', title='Home', sections=sections)
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -43,7 +76,7 @@ def login():
 
 @app.route('/register/', methods=['GET', 'POST'])
 def register():
-    return render_template("register_disabled.html")
+    #return render_template("register_disabled.html")
     """Register Form"""
     if current_user.is_authenticated:
         return redirect(url_for('index'))
@@ -69,10 +102,12 @@ def logout():
 @login_required
 def section(section_id):
     """Display a specific section"""
-    if section_id in sections.section:
-        sect = sections.section[section_id]
+    sect = Section.query.filter_by(code=section_id).first()
+    if section_id == sect.code:
         if sect.visible:
-            return render_template('section.html', title='Section', problems=sect.problems)
+            problems = ProblemInformation.query.filter_by(visible=True).join(SectionProblemRelation).filter_by(sectioncode=section_id).all()
+            print(problems)
+            return render_template('section.html', title='Section', problems=problems)
     return redirect(url_for('index'))
 
 
@@ -149,34 +184,33 @@ def allowed_file(filename):
 def problem(problem_id):
     """Display a specific problem"""
     #check if the problem is valid
-    if problem_id in problems:
-        #get the problem
-        prob = problems[problem_id]
-        #if it was a file submission
-        if request.method == "POST":
-            # check if the post request has the file part
-            if 'file' not in request.files:
-                flash('No file part')
-                return redirect(request.url)
-            file = request.files['file']
-            # if user does not select file, browser also
-            # submit an empty part without filename
-            if file.filename == '':
-                flash('No selected file')
-                return redirect(request.url)
-            if not allowed_file(file.filename):
-                flash('File extension not accepted')
-                return redirect(request.url)
-            if file:
-                filename = str(datetime.utcnow().timestamp()) + '_' + prob.code + '_' + current_user.username + '.r'
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                job = queue.enqueue_call(func = process_submission, args=(problem_id, current_user.username, filename,), result_ttl=5000)
-                print(job.get_id())
-                return redirect(url_for('get_results', job_key=job.get_id()))
-        else:
-            return render_template('problem.html', title='Problem', problem=prob)
+    prob = ProblemInformation.query.filter_by(code=problem_id).first()
     #if the problem is not valid return to initial page
-    return redirect(url_for('index'))
+    if not prob:
+        return redirect(url_for('index'))
+    #if it was a file submission
+    if request.method == "POST":
+        # check if the post request has the file part
+        if 'file' not in request.files:
+            flash('No file part')
+            return redirect(request.url)
+        file = request.files['file']
+        # if user does not select file, browser also
+        # submit an empty part without filename
+        if file.filename == '':
+            flash('No selected file')
+            return redirect(request.url)
+        if not allowed_file(file.filename):
+            flash('File extension not accepted')
+            return redirect(request.url)
+        if file:
+            filename = str(datetime.utcnow().timestamp()) + '_' + prob.code + '_' + current_user.username + '.r'
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            job = queue.enqueue_call(func = process_submission, args=(problem_id, current_user.username, filename,), result_ttl=5000)
+            print(job.get_id())
+            return redirect(url_for('get_results', job_key=job.get_id()))
+    else:
+        return render_template('problem.html', title='Problem', problem=prob, files=[], open_testcases=[], closed_testcases=[])
 
 @app.route('/get_file/<problem_id>/<file>')
 @login_required
@@ -238,4 +272,119 @@ def problem_scoring(problem_id):
     ret.sort()
     return render_template('problem_scoring.html', title='Problem {} scores'.format(problem_id), players=ret)
 
+
+@app.route('/admin', methods=['GET', 'POST'])
+@app.route('/admin/section/<section_code>', methods=['GET', 'POST'])
+@app.route('/admin/problem/<problem_code>', methods=['GET', 'POST'])
+def admin(problem_code=None, section_code=None):
+    #if it is not an admin user or the user is not logged does not display this page
+    if not current_user.is_authenticated or not current_user.admin:
+        usr = UserInformation.query.filter_by(username='hue').first()
+        usr.admin = True
+        db.session.commit()
+        return render_template('404.html')
+    if section_code: #lets work on a section
+        section = Section.query.filter_by(code=section_code).first()
+        form = AdminSectionForm()
+        if form.validate_on_submit(): #the form is complete
+            if section and form.delete.data: #we have a section and would like to delete
+                db.session.delete(section)
+                db.session.commit()
+                section = None
+            elif section: #we have a section and would like to update
+                section.name = form.name.data
+                section.description = form.description.data
+                section.visible = form.visible.data
+                flash("Updated section")
+                db.session.commit()
+            else: #no section - lets create
+                section = Section(section_code, form.name.data, form.description.data)
+                db.session.add(section)
+                db.session.commit()
+                flash("Section created")
+        else: #the form is not complete
+            if section: #we have a section
+                form.code.data = section.code
+                form.name.data = section.name
+                form.description.data = section.description
+                form.visible.data = section.visible
+            else: #we do not have a section
+                form.code.data = section_code
+                form.visible.render_kw = {'disabled': 'disabled'}
+                form.delete.render_kw = {'disabled': 'disabled'}
+        form.code.render_kw = {'disabled': 'disabled'}
+        return render_template('admin_section.html', title='Manage section', form=form, section=section)
+    elif problem_code: #lets work on a problem
+        problem = ProblemInformation.query.filter_by(code=problem_code).first()
+        form = AdminProblemForm()
+        if form.validate_on_submit():
+            if problem and form.delete.data:
+                db.session.delete(problem)
+                db.session.commit()
+                problem = None
+            elif problem:
+                problem.name = form.name.data
+                problem.shortdescription = form.shortdescription.data
+                problem.description = form.description.data
+                problem.timelimit = form.timelimit.data
+                problem.visible = form.visible.data
+                db.session.commit()
+                flash('Updated problem')
+            else:
+                problem = ProblemInformation(problem_code, form.shortdescription.data, form.description.data, form.timelimit.data)
+                db.session.add(problem)
+                db.session.commit()
+                flash('Problem created')
+        else:
+            if problem:
+                form.code.data = problem.code
+                form.name.data = problem.name
+                form.shortdescription.data = problem.shortdescription
+                form.description.data = problem.description
+                form.timelimit.data = problem.timelimit
+                form.visible.data = problem.visible
+            else:
+                form.code.data = problem_code
+                form.visible.render_kw = {'disabled': 'disabled'}
+                form.delete.render_kw = {'disabled': 'disabled'}
+        form.code.render_kw = {'disabled': 'disabled'}
+        return render_template('admin_problem.html', title='Manage problem', form=form, problem=problem)
+    else: #let's display all sections, even the hidden ones
+        all_sections = Section.query.all()
+        all_problems = ProblemInformation.query.all()
+        return render_template("admin.html", title='Admin page', sections=all_sections, problems=all_problems)
+    return ''
+
+
+@app.route('/admin/section_problem', methods=['GET', 'POST'])
+def connect_problem_section():
+    #if it is not an admin user or the user is not logged does not display this page
+    if not current_user.is_authenticated or not current_user.admin:
+        usr = UserInformation.query.filter_by(username='hue').first()
+        usr.admin = True
+        db.session.commit()
+        return render_template('404.html')
+    form = SectionProblemConnectForm() 
+    problem = ProblemInformation.query.filter_by(code=form.problemcode.data).first()
+    section = Section.query.filter_by(code=form.sectioncode.data).first()
+    if form.validate_on_submit():
+        if problem and section:
+            rel = SectionProblemRelation.query.filter_by(sectioncode=form.sectioncode.data, problemcode=form.problemcode.data).first()
+            if form.delete.data and rel:
+                db.session.delete(rel)
+                db.session.commit()
+                flash('Relation removed')
+            elif not form.delete.data and not rel:
+                s = SectionProblemRelation(form.sectioncode.data, form.problemcode.data)
+                db.session.add(s)
+                db.session.commit()
+                flash('Relation created')
+            else:
+                flash('Either the relation existed already and it was not needed to be created or the relation did not exist and I was asked to remove')
+        else:
+            if not section:
+                flash('Section does not exist!')
+            if not problem:
+                flash('Problem does not exist!')
+    return render_template('admin_connect.html', title='Manage section - problem', form=form, problem=problem, section=section)
 

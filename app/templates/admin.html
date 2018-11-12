@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Hi, {{ current_user.username }}!</h1>
+    <p>To create/update a section access: <a href="{{ url_for('admin', section_code='new') }}">here</a></p>
+    <p>To create/update a problem access: <a href="{{ url_for('admin', problem_code='new') }}">here</a></p>
+    <p>To connect section and problem access: <a href="{{ url_for('connect_problem_section') }}">here</a></p>
+    <table border="2">
+	    <tr>
+		    <th>Code</th>
+		    <th>Name</th>
+		    <th>Description</th>
+		    <th>Visible</th>
+	    </tr>
+    {% for section in sections %}
+    		<tr>
+			<td><a href="{{ url_for('admin', section_code=section.code) }}">{{ section.code }}</a></td>
+			<td>{{ section.name }}</td>
+			<td>{{ section.description }}</td>
+			<td>{{ section.visible }}</td>
+		</tr>
+    {% endfor %}
+    <table border="2">
+	    <tr>
+		    <th>Code</th>
+		    <th>Name</th>
+		    <th>Short description</th>
+		    <th>Visible</th>
+	    </tr>
+    {% for problem in problems %}
+    		<tr>
+			<td><a href="{{ url_for('admin', problem_code=problem.code) }}">{{ problem.code }}</a></td>
+			<td>{{ problem.name }}</td>
+			<td>{{ problem.description }}</td>
+			<td>{{ problem.visible }}</td>
+		</tr>
+    {% endfor %}
+    </table>
+{% endblock %}

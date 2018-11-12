@@ -11,6 +11,9 @@
 		<b>PS 0.1:</b>
             <a href="{{ url_for('index') }}">Home</a>
             <a href="{{ url_for('ranks') }}">Ranks</a>
+	    {% if current_user.admin %}
+	    <a href="{{ url_for('admin') }}">Admin</a>
+	    {% endif %}
             {% if current_user.is_anonymous %}
             <a href="{{ url_for('login') }}">Login</a>
             {% else %}
