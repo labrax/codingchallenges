@@ -20,7 +20,10 @@
 			}
 		],
 		"closed": [
-
+			{
+				"input": "arq2.in", 
+				"output": "arq2.res"
+			}
 		]
 	},
 	"submission":{

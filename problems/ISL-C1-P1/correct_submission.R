@@ -28,6 +28,7 @@ cat(as.character(prediction), "\n")
 #PART C
 ##give the prediction (Y) for K = 3
 df$distance <- df$X1*df$X1 + df$X2*df$X2 + df$X3*df$X3
+#print(df)
 ordered <- df[order(df$distance),]
 top3_most <- table(ordered[c(1:3),]$Y)
 
