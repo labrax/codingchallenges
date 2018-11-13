@@ -1,11 +1,8 @@
 
-- job submission
-- webpage with ranks overall
-- webpage with ranks per section
-
 
 cronjob:
 - update each user rank (each 5 minutes or something)
+- compute index, each section and each problem
 
 hanging:
 - files

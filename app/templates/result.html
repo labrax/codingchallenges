@@ -9,8 +9,21 @@
     <p>Amount wrong: {{ result.amountfail }} </p>
     <p>Time submission: {{ result.timesubmission }} </p>
     <p>Time processed: {{ result.timeprocessed }} </p>
-    <blockquote>
-	    <p>Full report:</p>
-	    {{ result.reportjson }}
-    </blockquote>
+    <p>Full report:</p>
+    <table border="2">
+	    <tr>
+		    <th>Case</th>
+		    <th>Out</th>
+		    <th>Err</th>
+		    <th>Timelimit<th>
+	    </tr>
+	    {% for i,j in report.items() %}
+	    <tr>
+		    <td>{{ i }}</td>
+		    <td>{{ j[0] }}</td>
+		    <td>{{ j[1] }}</td>
+		    <td>{{ j[2] }}</td>
+	    </tr>
+	    {% endfor %}
+    </table>
 {% endblock %}
