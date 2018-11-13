@@ -64,6 +64,11 @@ iptables -A chk_apache_user -p tcp --syn -d 127.0.0.1 --dport 6379  -j RETURN
 iptables -A chk_apache_user -j REJECT
 
 
+Create private key and certificate:
+- openssl req \
+       -newkey rsa:2048 -nodes -keyout key.key \
+       -x509 -days 365 -out key.crt
+
 The judge command accept commands like this:
 cat {input_file} | Rscript {script_file} > {tempfile}; diff --strip-trailing-cr {tempfile} {res_file}
 

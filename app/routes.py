@@ -26,7 +26,7 @@ import ast
 @app.route('/index')
 @login_required
 def index():
-    sections = Section.query.filter_by(visible=True).order_by(Section.code).all()
+    sections = Section.query.filter_by(visible=True).order_by(Section.timecreated).all()
     return render_template('index.html', title='Home', sections=sections)
 
 
@@ -218,7 +218,7 @@ def problem(problem_id):
 def get_file(problem_id, file):
     file = ProblemFile.query.filter_by(id=file, problem_code=problem_id).first()
     if file.visible or current_user.admin:
-        return send_file(os.path.join(app.config['PROBLEMS_DIR'], problem_id, file.file_name), attachment_filename=file.file_name)
+        return send_file(os.path.join(app.config['PROBLEMS_DIR'], problem_id, file.file_name), as_attachment=True, attachment_filename=file.file_name)
     return render_template('404.html', title='Invalid file')
 
 
@@ -242,7 +242,7 @@ def ranks():
             user_problem[i.username] = dict()
         user_problem[i.username][i.problem_code] = True
     ret = [(len(j[1].values()), j[0]) for j in user_problem.items()]
-    ret.sort()
+    ret.sort(reverse=True)
     return render_template('ranks.html', title='Ranks', players=ret)
 
 

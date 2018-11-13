@@ -1,8 +1,10 @@
 __pycache__
-.swp
-.Rhistory
-.log
-database.db
+*.swp
+*.Rhistory
+*.log
+*.db
 uploads/
 tmp/
 venv/
+*.crt
+*.key
