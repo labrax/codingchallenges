@@ -7,7 +7,7 @@
 	{% if files %}
 	<p><b>Files:</b></p>
 	    {% for file in files %}
-	    <p><a href="{{ url_for('get_file', problem_id = problem.code, file=file.file_name) }}">{{ file.id }} - {{ file.file_name }}</a>: {{ file.visible }}</p>
+	    <p><a href="{{ url_for('get_file', problem_id = problem.code, file=file.id) }}">{{ file.id }} - {{ file.file_name }}</a>: {{ file.visible }}</p>
 	    {% endfor %}
 	{% else %}
 	<p><b>No files</b></p>

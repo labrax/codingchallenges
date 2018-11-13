@@ -6,7 +6,7 @@ df <- read.csv(file)
 ## compute the distance to each row to 0,0,0 print using cat(distance_i, "\n")
 for(i in 1:nrow(df)) {
 	    distance_i <- df[i,]$X1*df[i,]$X1 + df[i,]$X2*df[i,]$X2 + df[i,]$X3*df[i,]$X3
-    cat(distance_i, "\n")
+    cat(sqrt(distance_i), "\n")
 }
 
 #PART B
