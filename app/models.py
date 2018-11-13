@@ -39,20 +39,25 @@ class UserProblemSubmission(db.Model):
     __tablename__ = "UserProblemSubmission"
     id = db.Column("id", db.Integer, primary_key=True, unique=True, index=True)
     timesubmission = db.Column('submitted_on', db.DateTime)
-    userid = db.Column(db.Integer, db.ForeignKey('UserInformation.username'))
-    problemid = db.Column('problem_id', db.Integer)
+    timeprocessed = db.Column('processed_on', db.DateTime)
+    username = db.Column('user_code', db.String(20), db.ForeignKey('UserInformation.username'))
+    problem_code = db.Column('problem_code', db.String(20), db.ForeignKey('ProblemInformation.code'))
+    filename = db.Column('filename', db.String(50), unique=True)
     amountpass = db.Column('amount_case_pass', db.Integer)
     amountfail = db.Column('amount_case_fail', db.Integer)
     success = db.Column('is_sucess', db.Boolean)
+    processed = db.Column('is_processed', db.Boolean)
     reportjson = db.Column('reportjson', db.String(4096))
-    def __init__(self, userid, problemid, amountpass, amountfail, success, reportjson):
-        self.userid = userid
-        self.problemid = problemid
+    def __init__(self, username, problem_code, filename, amountpass, amountfail, success, reportjson, processed):
+        self.username = username
+        self.problem_code = problem_code
+        self.filename = filename
         self.amountpass = amountpass
         self.amountfail = amountfail
         self.success =  success
         self.reportjson = reportjson
         self.timesubmission = datetime.utcnow()
+        self.processed = processed
 
 
 class Section(db.Model):
@@ -66,6 +71,7 @@ class Section(db.Model):
     def __init__(self, code, name, description):
         self.code = code
         self.name = name
+        self.description = description
         self.timecreated = datetime.utcnow()
         self.visible = False
 
@@ -87,15 +93,14 @@ class ProblemInformation(db.Model):
     name = db.Column('name', db.String(20))
     created_on = db.Column('created_on', db.DateTime)
     shortdescription = db.Column('short_description', db.String(50))
-    description = db.Column('description', db.String(32768))
+    description_file = db.Column('description_file', db.Integer)
     visible = db.Column('is_visible', db.Boolean)
     timelimit = db.Column('timelimit', db.Integer)
     judge_cmd = db.Column('judge_cmd', db.String(128))
-    def __init__(self, code, name, shortdescription, description, timelimit, judge_cmd):
+    def __init__(self, code, name, shortdescription, timelimit, judge_cmd):
         self.code = code
         self.name = name
         self.shortdescription = shortdescription
-        self.description = description
         self.visible = False
         self.timelimit = timelimit
         self.judge_cmd = judge_cmd

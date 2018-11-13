@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Hi, {{ current_user.username }}!</h1>
+<h1>Section {{ section_id }}</h1>
+    {% if not section.visible %}
+    <p><b>This section is not visible.</b></p>
+    {% endif %}
+    <p>{{ section.description }}</p>
     {% for problem in problems %}
     <div><p><a href="{{ url_for('problem', problem_id = problem.code) }}">{{ problem.code }} <b>{{ problem.name }}</b></a>: {{ problem.short_description }} <a href="{{ url_for('problem_scoring', problem_id = problem.code) }}">Scores</a></p></div>
     {% endfor %}

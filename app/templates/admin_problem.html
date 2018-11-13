@@ -30,13 +30,6 @@
             {% endfor %}
         </p>
         <p>
-            {{ form.description.label }}<br>
-            {{ form.description(size=512) }}<br>
-            {% for error in form.description.errors %}
-            <span style="color: red;">[{{ error }}]</span>
-            {% endfor %}
-        </p>
-        <p>
             {{ form.judge_cmd.label }}<br>
             {{ form.judge_cmd(size=32) }}<br>
             {% for error in form.judge_cmd.errors %}

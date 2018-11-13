@@ -71,7 +71,6 @@ class AdminProblemForm(FlaskForm):
     code = StringField('Code', validators=[Optional(), length(max=20)])
     name = StringField('Name', validators=[DataRequired(), length(max=20)])
     shortdescription = StringField('Short description', validators=[DataRequired(), length(max=50)])
-    description = TextAreaField('Description', validators=[DataRequired(), length(max=32768)])
     judge_cmd = StringField('Judge command', validators=[DataRequired(), length(max=128)])
     timelimit = IntegerField('Timelimit', validators=[DataRequired()])
     visible = BooleanField('Should it be visible?')
@@ -112,6 +111,12 @@ class DeleteFileForm(FlaskForm):
     def validate_file_id(self, file_id):
         if not ProblemFile.query.filter_by(id=file_id.data).first():
             raise ValidationError('This file id does not exist')
+
+
+class SetDescriptionForm(FlaskForm):
+    description_file = IntegerField('Description file id', validators=[DataRequired()])
+    remove = BooleanField('Remove description')
+    submit = SubmitField('Set file')
 
 
 class SetTestCaseForm(FlaskForm):

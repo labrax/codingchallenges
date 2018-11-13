@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Hi, {{ current_user.username }}!</h1>
     <p size="+1"> Submission id: {{ result.id }} </p>
+    <p><b>User: {{ result.username }} </b></p>
     <p><b>Problem id: {{ result.problemid }} </b></p>
-    <p><b> Success: {{ result.success }} </b></p>
-    <p> Amount right: {{ result.amountpass }} </p>
-    <p> Amount wrong: {{ result.amountfail }} </p>
-    <p> Time submission: {{ result.timesubmission }} </p>
+    <p><b>Success: {{ result.success }} </b></p>
+    <p>Amount right: {{ result.amountpass }} </p>
+    <p>Amount wrong: {{ result.amountfail }} </p>
+    <p>Time submission: {{ result.timesubmission }} </p>
+    <p>Time processed: {{ result.timeprocessed }} </p>
     <blockquote>
 	    <p>Full report:</p>
 	    {{ result.reportjson }}

@@ -58,6 +58,24 @@
 	<p>{{ form1.submit() }}</p>
     </form>
     <form action="" method="post">
+	    {{ form11.hidden_tag() }}
+        <p>
+            {{ form11.description_file.label }}<br>
+            {{ form11.description_file(size=32) }}<br>
+            {% for error in form11.description_file.errors %}
+            <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>
+            {{ form11.remove.label }}<br>
+            {{ form11.remove(size=32) }}<br>
+            {% for error in form11.remove.errors %}
+            <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+	<p>{{ form11.submit() }}</p>
+    </form>
+    <form action="" method="post">
 	    {{ form2.hidden_tag() }}
         <p>
             {{ form2.test_case.label }}<br>

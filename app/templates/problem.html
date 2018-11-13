@@ -1,20 +1,21 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Hi, {{ current_user.username }}!</h1>
     <div>
-	    <p size="+1">
+	    <h1>
 	    	<b>{{ problem.code }}: {{ problem.name }}</b>
-	    </p>
+	    </h1>
 	    <p>
 	    </p>
 	    <p>
 	    </p>
-	    <blockquote>
-	    {{ problem.description }}
-	    </blockquote>
+	    {% if problem.description_file %}
+            <div w3-include-html="{{ url_for('get_file', problem_id = problem.code, file = problem.description_file) }}"></div>
+	    {% else %}
+	    <p>Sorry, description file was not setup.</p>
+	    {% endif %}
 	    <p></p>
-	    <p size="+1">Available files:</p>
+	    <p size="+1"><b>Available files:</b></p>
 	    {% for file in files %}
 	    <p><a href="{{ url_for('get_file', problem_id = problem.code, file = file.id) }}">{{ file.file_name }}</a></p>
 	    {% endfor %}
@@ -30,8 +31,8 @@
 		    <td><a href="{{ url_for('get_file', problem_id = problem.code, file = testcase.res_file) }}">arq{{ testcase.test_case }}.res</a></td>
 		    <td>{% if testcase.is_open_case %}Open{% else %}Closed{% endif %}</td>
 	    </tr>
-	    </table>
 	    {% endfor %}
+	    </table>
 	    <form method=post enctype=multipart/form-data>
 		    <p>your_submission.R<input type=file name=file></p>
             <input type=submit value=Upload>

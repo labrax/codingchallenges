@@ -5,7 +5,7 @@ from werkzeug.urls import url_parse
 from werkzeug.utils import secure_filename
 from app import app, db, queue
 
-from app.forms import LoginForm, RegistrationForm, ChangePasswordForm, AdminSectionForm, AdminProblemForm, SectionProblemConnectForm, UploadFileForm, DeleteFileForm, SetTestCaseForm, DeleteTestCaseForm
+from app.forms import LoginForm, RegistrationForm, ChangePasswordForm, AdminSectionForm, AdminProblemForm, SectionProblemConnectForm, UploadFileForm, DeleteFileForm, SetTestCaseForm, DeleteTestCaseForm, SetDescriptionForm
 from app.models import UserInformation, UserProblemSubmission, Section, ProblemInformation, SectionProblemRelation, ProblemFile, ProblemTestCaseInformation
 
 from rq.job import Job
@@ -14,6 +14,10 @@ from worker import conn
 import os
 from subprocess import Popen, TimeoutExpired, PIPE
 import resource
+
+import tempfile
+import shutil
+import glob
 
 
 @app.route('/')
@@ -86,11 +90,10 @@ def change_password():
 def section(section_id):
     """Display a specific section"""
     sect = Section.query.filter_by(code=section_id).first()
-    if section_id == sect.code:
-        if sect.visible:
+    if sect:
+        if sect.visible or current_user.admin:
             problems = ProblemInformation.query.filter_by(visible=True).join(SectionProblemRelation).filter_by(sectioncode=section_id).all()
-            print(problems)
-            return render_template('section.html', title='Section', problems=problems)
+            return render_template('section.html', title='Section', problems=problems, section=sect)
     return redirect(url_for('index'))
 
 
@@ -101,71 +104,70 @@ def user(user_id):
     user = UserInformation.query.filter_by(username=user_id).first()
     return render_template('user.html', title='User', user=user)
 
-
-
-def process_submission(problem_id, username, filename, ):
-    #execute for submission id
-    amountpass = 0
-    amountfail = 0
-    reportjson = dict()
-
-    def exec(case, input, res, timelimit, in_and_out = False):
-        original_wd = os.getcwd()
-        script_file = os.path.join(os.getcwd(), app.config['UPLOAD_FOLDER'], filename)
-        tempfile = os.path.join(os.getcwd(), app.config['TEMPORARY_FOLDER'], filename, '.out')
-        os.chdir(os.path.join(app.config['PROBLEMS_DIR'], problem_id))
-        def setlimits():
-            resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
-        proc = Popen(prob.judge_line.format(input, script_file, tempfile, tempfile, res), stdout=PIPE, stderr=PIPE, shell=True, preexec_fn=setlimits)
-        try:
-            outs, errs = proc.communicate(timeout=timelimit)
-        except TimeoutExpired:
-            proc.kill()
-            outs, errs = proc.communicate() 
-            if in_and_out:
-                reportjson[case] = 'timelimit'
-        os.unlink(tempfile)
-        os.chdir(original_wd)
-        outs = outs.decode().replace('\n', '<p></p>')
-        errs = errs.decode().replace('\n', '<p></p>')
-        if in_and_out:
-            reportjson[input] = '{};{}'.format(outs, errs)
-        if outs == '' and errs == '':
-            return True
-        return False
-
-    #TODO
-    prob = problems[problem_id]
-    timelimit = prob.timelimit
-    for index, i in zip(range(len(prob.open_testcases)), prob.open_testcases):
-        input = i['input']
-        res = i['output']
-        if exec(index, input, res, timelimit, in_and_out=True):
-            amountpass = amountpass + 1
-        else:
-            amountfail = amountfail + 1
-        
-    for index, i in zip(range(len(prob.closed_testcases)), prob.closed_testcases):
-        input = i['input']
-        res = i['output']
-        if exec(index, input, res, timelimit, in_and_out=False):
-            amountpass = amountpass + 1
-        else:
-            amountfail = amountfail + 1
-
-    if amountfail == 0:
-        success = True
-    else:
-        success = False
-
-    #save the results
+def execute_corrector(judge_cmd, input_file, res_file, script_file, timelimit):
+    def setlimits():
+        resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
+    proc = Popen(judge_cmd.format(script_file=script_file, tempfile='output.out', input_file=input_file, res_file=res_file), stdout=PIPE, stderr=PIPE, shell=True, preexec_fn=setlimits)
     try:
-        result = UserProblemSubmission(username, problem_id, amountpass, amountfail, success, str(reportjson))
-        db.session.add(result)
-        db.session.commit()
-        return result.id
-    except Exception as e:
-        print(e)
+        outs, errs = proc.communicate(timeout=timelimit)
+        timelimit = False
+    except TimeoutExpired:
+        proc.kill()
+        outs, errs = proc.communicate() 
+        timelimit = True
+    return outs, errs, timelimit
+
+
+def process_submission(submission_id, ):
+    submission = UserProblemSubmission.query.filter_by(id=submission_id).first()
+    if not submission:
+        raise Exception('Invalid submission? Could not find submission {}'.format(submission_id))
+    prob = ProblemInformation.query.filter_by(code=submission.problem_code).first()
+    if not prob:
+        raise Exception('Invalid submission? Could not find problem {}'.format(submission.problem_code))
+    testcases = ProblemTestCaseInformation.query.filter_by(problem_code=submission.problem_code).all()
+    if len(testcases) > 0:
+        amountfail = 0
+        amountpass = 0
+        reportjson = dict()
+        with tempfile.TemporaryDirectory() as directory:
+            directory += '/'
+            script_file = os.path.join(os.getcwd(), app.config['UPLOAD_FOLDER'], submission.filename)
+            problem_folder = os.path.join(app.config['PROBLEMS_DIR'], submission.problem_code)
+            shutil.copy(script_file, directory)
+            script_file = submission.filename
+            original_wd = os.getcwd()
+            for test in testcases:
+                test_case = test.test_case
+                input_file = ProblemFile.query.filter_by(id=test.input_file).first().file_name
+                res_file = ProblemFile.query.filter_by(id=test.res_file).first().file_name 
+                shutil.copy(problem_folder + '/' + input_file, directory)
+                shutil.copy(problem_folder + '/' + res_file, directory)
+                for f in glob.glob(problem_folder + '/*.csv'):
+                    shutil.copy(f, directory)
+                is_open_case = test.is_open_case
+                os.chdir(directory)
+                try:
+                    outs, errs, timelimit = execute_corrector(prob.judge_cmd, input_file, res_file, script_file, prob.timelimit)
+                    outs = outs.decode()
+                    errs = errs.decode()
+                    if outs == '':
+                        amountpass += 1
+                    else:
+                        amountfail += 1
+                    if is_open_case:
+                        reportjson[test_case] = [outs, errs, timelimit]
+                except Exception as e:
+                    print(e)
+                os.chdir(original_wd)
+            submission.reportjson = str(reportjson)
+            submission.amountpass = amountpass
+            submission.amountfail = amountfail
+            if amountfail == 0 and amountpass > 0:
+                submission.success = True
+    submission.processed = True
+    submission.timeprocessed = datetime.utcnow()
+    db.session.commit()
 
 
 def allowed_file(filename):
@@ -199,19 +201,21 @@ def problem(problem_id):
         if file:
             filename = str(datetime.utcnow().timestamp()) + '_' + prob.code + '_' + current_user.username + '.r'
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            job = queue.enqueue_call(func = process_submission, args=(problem_id, current_user.username, filename,), result_ttl=45*60)
-            print(job.get_id())
-            return redirect(url_for('get_results', job_key=job.get_id()))
+            problem_submission = UserProblemSubmission(current_user.username, problem_id, filename, None, None, False, None, False)
+            db.session.add(problem_submission)
+            db.session.commit()
+            queue.enqueue_call(func = process_submission, args=(problem_submission.id,), result_ttl=15)
+            return redirect(url_for('get_results', job_key=problem_submission.id))
     else:
+        print(prob.description_file)
         return render_template('problem.html', title='Problem', problem=prob, files=ProblemFile.query.filter_by(problem_code=problem_id, visible=True).all(), testcases=ProblemTestCaseInformation.query.filter_by(problem_code=problem_id).all())
 
 
 @app.route('/get_file/<problem_id>/<file>')
 @login_required
 def get_file(problem_id, file):
-    #TODO
-    file = ProblemFile.query.filter_by(id=file, problem_code=problem_id, visible=True).first()
-    if file:
+    file = ProblemFile.query.filter_by(id=file, problem_code=problem_id).first()
+    if file.visible or current_user.admin:
         return send_file(os.path.join(app.config['PROBLEMS_DIR'], problem_id, file.file_name), attachment_filename=file.file_name)
     return render_template('404.html', title='Invalid file')
 
@@ -219,10 +223,9 @@ def get_file(problem_id, file):
 @app.route('/results/<job_key>', methods=['GET'])
 @login_required
 def get_results(job_key):
-    job = Job.fetch(job_key, connection=conn)
-    if job.is_finished:
-        result = UserProblemSubmission.query.filter_by(id=job.result).first()
-        return render_template('result.html', title='Result', result = result)
+    submission = UserProblemSubmission.query.filter_by(id=job_key).first()
+    if submission.processed:
+        return render_template('result.html', title='Result', result=submission)
     else:
         return render_template('result_wait.html', title='Results incoming...')
 
@@ -319,14 +322,13 @@ def admin(problem_code=None, section_code=None):
             elif problem:
                 problem.name = form.name.data
                 problem.shortdescription = form.shortdescription.data
-                problem.description = form.description.data
                 problem.judge_cmd = form.judge_cmd.data
                 problem.timelimit = form.timelimit.data
                 problem.visible = form.visible.data
                 db.session.commit()
                 flash('Updated problem')
             else:
-                problem = ProblemInformation(form.code.data, form.name.data, form.shortdescription.data, form.description.data, form.timelimit.data, form.judge_cmd.data)
+                problem = ProblemInformation(form.code.data, form.name.data, form.shortdescription.data, form.timelimit.data, form.judge_cmd.data)
                 db.session.add(problem)
                 db.session.commit()
                 try:
@@ -342,7 +344,6 @@ def admin(problem_code=None, section_code=None):
                 print(problem.name)
                 form.name.data = problem.name
                 form.shortdescription.data = problem.shortdescription
-                form.description.data = problem.description
                 form.judge_cmd.data = problem.judge_cmd
                 form.timelimit.data = problem.timelimit
                 form.visible.data = problem.visible
@@ -399,6 +400,7 @@ def admin_problem_file(problem_id):
 
     form = UploadFileForm(prefix='form')
     form1 = DeleteFileForm(prefix='form1')
+    form11 = SetDescriptionForm(prefix='form11')
     form2 = SetTestCaseForm(prefix='form2')
     form3 = DeleteTestCaseForm(prefix='form3')
 
@@ -425,9 +427,30 @@ def admin_problem_file(problem_id):
             flash('File deleted.')
         else:
             flash('File not found.')
+    elif form11.submit.data and form11.validate_on_submit():
+        if form11.remove.data:
+            p = ProblemInformation.query.filter_by(code=problem_id).first()
+            p.description_file = None
+            db.session.commit()
+            flash('Description file removed')
+        else:
+            exists = ProblemFile.query.filter_by(problem_code=problem_id, id=form11.description_file.data).first()
+            if not exists:
+                flash('Description file not in problem!')
+            else:
+                p = ProblemInformation.query.filter_by(code=problem_id).first()
+                p.description_file = form11.description_file.data
+                db.session.commit()
+                flash('Description file set.')
     elif form2.submit.data and form2.validate_on_submit():
+        in_file = ProblemFile.query.filter_by(problem_code=problem_id, id=form2.input_file.data).first()
+        res_file = ProblemFile.query.filter_by(problem_code=problem_id, id=form2.res_file.data).first()
         exists = ProblemTestCaseInformation.query.filter_by(problem_code=problem_id, test_case=form2.test_case.data).first()
-        if not exists:
+        if not in_file:
+           flash('The input file is not in this problem.')
+        if not res_file:
+           flash('The response file is not in this problem.')
+        elif not exists:
             n = ProblemTestCaseInformation(problem_id, form2.test_case.data, form2.input_file.data, form2.res_file.data, form2.is_open.data)
             db.session.add(n)
             db.session.commit()
@@ -446,6 +469,6 @@ def admin_problem_file(problem_id):
             flash('Test case removed.')
         else:
             flash('Test case was not removed because it does not exist.')
-    return render_template('admin_problem_file.html', title='Manage problem - files', form=form, form1=form1, form2=form2, form3=form3, problem=ProblemInformation.query.filter_by(code=problem_id).first(), files=ProblemFile.query.filter_by(problem_code=problem_id).all(), testcases=ProblemTestCaseInformation.query.filter_by(problem_code=problem_id).all())
+    return render_template('admin_problem_file.html', title='Manage problem - files', form=form, form1=form1, form11=form11, form2=form2, form3=form3, problem=ProblemInformation.query.filter_by(code=problem_id).first(), files=ProblemFile.query.filter_by(problem_code=problem_id).all(), testcases=ProblemTestCaseInformation.query.filter_by(problem_code=problem_id).all())
 
 

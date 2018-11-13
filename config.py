@@ -15,5 +15,4 @@ class Config(object):
     ADMINS = ['your-email@example.com']
     ALLOWED_EXTENSIONS = set(['r'])
     UPLOAD_FOLDER = 'uploads'
-    TEMPORARY_FOLDER = 'tmp'
     PROBLEMS_DIR = 'problems'
