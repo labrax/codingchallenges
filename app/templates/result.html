@@ -9,6 +9,7 @@
     <p>Amount wrong: {{ result.amountfail }} </p>
     <p>Time submission: {{ result.timesubmission }} </p>
     <p>Time processed: {{ result.timeprocessed }} </p>
+    {% if report %}
     <p>Full report:</p>
     <table border="2">
 	    <tr>
@@ -26,4 +27,5 @@
 	    </tr>
 	    {% endfor %}
     </table>
+    {% endif %}
 {% endblock %}

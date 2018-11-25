@@ -227,7 +227,12 @@ def get_file(problem_id, file):
 def get_results(job_key):
     submission = UserProblemSubmission.query.filter_by(id=job_key).first()
     if submission.processed:
-        return render_template('result.html', title='Result', result=submission, report=ast.literal_eval(submission.reportjson))
+        if submission.reportjson:
+            print(submission.reportjson)
+            report = ast.literal_eval(submission.reportjson)
+        else:
+            report = None
+        return render_template('result.html', title='Result', result=submission, report=report)
     else:
         return render_template('result_wait.html', title='Results incoming...')
 
