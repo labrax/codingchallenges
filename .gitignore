@@ -10,3 +10,4 @@ logs/
 *.crt
 *.key
 *.bkp
+dump.rdb
