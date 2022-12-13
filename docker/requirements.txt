@@ -8,7 +8,7 @@ Flask-WTF==0.14.2
 Jinja2==2.11.3
 Werkzeug==0.15.3
 MarkupSafe==1.0
-Mako==1.0.7
+Mako==1.2.2
 python-dateutil==2.6.1
 python-editor==1.0.3
 itsdangerous==1.1.0
